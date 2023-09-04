@@ -1,10 +1,9 @@
-package worker
+package goworker
 
 import (
 	"context"
 
 	"github.com/guanyaowen/puer/util"
-	"github.com/guanyaowen/puer/util/jsons"
 )
 
 var _ Task = (*task)(nil)
@@ -40,7 +39,7 @@ type task struct {
 
 	task func() error
 
-	err *TaskErr
+	err error
 
 	close chan struct{}
 }
@@ -84,17 +83,5 @@ func (t *task) Done() {
 }
 
 func (t *task) SetErr(err error) {
-	t.err = &TaskErr{
-		Err:    err.Error(),
-		TaskId: t.taskId,
-	}
-}
-
-type TaskErr struct {
-	TaskId string `json:"task_id"`
-	Err    string `json:"err"`
-}
-
-func (t TaskErr) Error() string {
-	return jsons.ToJson(t)
+	t.err = err
 }

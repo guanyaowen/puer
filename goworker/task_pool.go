@@ -1,10 +1,9 @@
-package worker
+package goworker
 
 import (
 	"context"
 	"fmt"
 	"math"
-	"runtime"
 	"sync"
 	"time"
 
@@ -98,10 +97,10 @@ func (p *taskPool) controlRoom() {
 func (p *taskPool) coreWorker() {
 	p.wg.Add(1)
 	go func() {
+		defer p.wg.Done()
 		for t := range p.taskChan {
 			p.doTask(t)
 		}
-		p.wg.Done()
 	}()
 }
 
@@ -116,6 +115,7 @@ func (p *taskPool) addWorker() {
 
 	p.wg.Add(1)
 	go func() {
+		defer p.wg.Done()
 		for {
 			select {
 			case t, ok := <-p.taskChan:
@@ -123,10 +123,8 @@ func (p *taskPool) addWorker() {
 					p.doTask(t)
 				}
 			case <-ctx.Done():
-				p.wg.Done()
 				return
 			case <-p.closeChan:
-				p.wg.Done()
 				return
 			}
 		}
@@ -159,7 +157,7 @@ func (p *taskPool) doTask(t Task) {
 
 	ch := make(chan error, 1)
 	go func() {
-		ch <- noPanic(t.Do)()
+		ch <- util.NoPanic(t.Do)()
 	}()
 
 	var err error
@@ -174,18 +172,4 @@ func (p *taskPool) doTask(t Task) {
 	}
 
 	t.Done()
-}
-
-func noPanic(f func() error) func() error {
-	return func() (err error) {
-		defer func() {
-			if re := recover(); re != nil {
-				buf := make([]byte, 4096)
-				runtime.Stack(buf, false)
-				err = fmt.Errorf("panic: %v, %s", re, util.FilterNull(buf))
-			}
-		}()
-
-		return f()
-	}
 }
